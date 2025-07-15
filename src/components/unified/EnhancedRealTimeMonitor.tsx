@@ -1,0 +1,577 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Activity, 
+  Brain, 
+  Zap, 
+  CheckCircle, 
+  AlertCircle, 
+  Shield,
+  Target,
+  Search,
+  Cog,
+  Package,
+  Users,
+  Wifi,
+  WifiOff,
+  Minimize2,
+  Maximize2,
+  Pause,
+  Play,
+  RotateCcw,
+  GripVertical,
+  Pin,
+  PinOff,
+  TrendingUp,
+  Clock,
+  Cpu,
+  Gauge,
+  Database,
+  Server,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { ScrollArea } from '../ui/scroll-area';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Progress } from '../ui/progress';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { ApiService } from '../../lib/api';
+import { cn } from '../../lib/utils';
+
+interface EnhancedActivityLog {
+  id: string;
+  timestamp: Date;
+  type: 'agent_start' | 'agent_processing' | 'agent_complete' | 'llm_request' | 'llm_response' | 'quality_check' | 'error' | 'system';
+  agent: string;
+  message: string;
+  details?: {
+    model?: string;
+    tokens?: number;
+    latency?: number;
+    qualityScore?: number;
+    confidence?: number;
+    memoryUsage?: number;
+    cpuUsage?: number;
+  };
+  level: 'info' | 'success' | 'warning' | 'error';
+  duration?: number;
+  progress?: number;
+}
+
+interface AgentPerformance {
+  name: string;
+  status: 'idle' | 'active' | 'complete' | 'error';
+  tasksCompleted: number;
+  avgResponseTime: number;
+  successRate: number;
+  lastActivity: Date | null;
+}
+
+interface SystemMetrics {
+  backend: { healthy: boolean; responseTime: number; };
+  gemini: { status: 'online' | 'offline' | 'rate_limited'; tokensUsed: number; quota: number; };
+  agents: AgentPerformance[];
+  websockets: { connected: boolean; latency: number; };
+  memory: { used: number; total: number; };
+  cpu: { usage: number; };
+}
+
+interface EnhancedRealTimeMonitorProps {
+  className?: string;
+  isGenerating?: boolean;
+  position?: 'fixed' | 'static';
+  defaultPosition?: { x: number; y: number };
+}
+
+export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = ({ 
+  className, 
+  isGenerating = false,
+  position = 'fixed',
+  defaultPosition = { x: 20, y: 20 }
+}) => {
+  const [activities, setActivities] = useState<EnhancedActivityLog[]>([]);
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
+  const [dragPosition, setDragPosition] = useState(defaultPosition);
+  const [isDragging, setIsDragging] = useState(false);
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({
+    backend: { healthy: false, responseTime: 0 },
+    gemini: { status: 'offline', tokensUsed: 0, quota: 1000000 },
+    agents: [
+      { name: 'Domain Expert', status: 'idle', tasksCompleted: 0, avgResponseTime: 0, successRate: 100, lastActivity: null },
+      { name: 'Privacy Agent', status: 'idle', tasksCompleted: 0, avgResponseTime: 0, successRate: 100, lastActivity: null },
+      { name: 'Quality Agent', status: 'idle', tasksCompleted: 0, avgResponseTime: 0, successRate: 100, lastActivity: null },
+      { name: 'Bias Detector', status: 'idle', tasksCompleted: 0, avgResponseTime: 0, successRate: 100, lastActivity: null },
+      { name: 'Relationship Agent', status: 'idle', tasksCompleted: 0, avgResponseTime: 0, successRate: 100, lastActivity: null }
+    ],
+    websockets: { connected: false, latency: 0 },
+    memory: { used: 0, total: 8192 },
+    cpu: { usage: 0 }
+  });
+
+  const dragRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+
+  const { isConnected, lastMessage } = useWebSocket('guest_user');
+
+  // Simulate realistic AI agent activities
+  useEffect(() => {
+    if (!isGenerating || isPaused) return;
+
+    const simulateAgentActivity = () => {
+      const agents = ['Domain Expert', 'Privacy Agent', 'Quality Agent', 'Bias Detector', 'Relationship Agent'];
+      const activities = [
+        'Analyzing data patterns',
+        'Validating privacy constraints',
+        'Checking for bias indicators',
+        'Optimizing data relationships',
+        'Ensuring quality standards',
+        'Processing LLM responses',
+        'Evaluating generated content',
+        'Cross-referencing domain knowledge'
+      ];
+
+      const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+      const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+      const randomProgress = Math.floor(Math.random() * 100);
+      
+      const newActivity: EnhancedActivityLog = {
+        id: `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        type: Math.random() > 0.7 ? 'llm_request' : 'agent_processing',
+        agent: randomAgent,
+        message: randomActivity,
+        details: {
+          model: 'gemini-2.0-flash-exp',
+          tokens: Math.floor(Math.random() * 500) + 100,
+          latency: Math.floor(Math.random() * 1000) + 200,
+          qualityScore: Math.floor(Math.random() * 30) + 70,
+          confidence: Math.floor(Math.random() * 20) + 80,
+          memoryUsage: Math.floor(Math.random() * 2048) + 1024,
+          cpuUsage: Math.floor(Math.random() * 60) + 20
+        },
+        level: Math.random() > 0.9 ? 'warning' : Math.random() > 0.95 ? 'error' : 'info',
+        progress: randomProgress
+      };
+
+      setActivities(prev => [newActivity, ...prev.slice(0, 49)]);
+      setCurrentProgress(randomProgress);
+
+      // Update agent performance
+      setSystemMetrics(prev => ({
+        ...prev,
+        agents: prev.agents.map(agent => 
+          agent.name === randomAgent 
+            ? {
+                ...agent,
+                status: 'active',
+                tasksCompleted: agent.tasksCompleted + 1,
+                avgResponseTime: (agent.avgResponseTime + (newActivity.details?.latency || 0)) / 2,
+                lastActivity: new Date()
+              }
+            : agent
+        ),
+        memory: {
+          ...prev.memory,
+          used: newActivity.details?.memoryUsage || prev.memory.used
+        },
+        cpu: {
+          usage: newActivity.details?.cpuUsage || prev.cpu.usage
+        }
+      }));
+    };
+
+    const interval = setInterval(simulateAgentActivity, 2000 + Math.random() * 3000);
+    return () => clearInterval(interval);
+  }, [isGenerating, isPaused]);
+
+  // System health monitoring
+  useEffect(() => {
+    const checkSystemHealth = async () => {
+      try {
+        const startTime = Date.now();
+        const healthResponse = await ApiService.healthCheck();
+        const responseTime = Date.now() - startTime;
+
+        setSystemMetrics(prev => ({
+          ...prev,
+          backend: {
+            healthy: healthResponse.healthy,
+            responseTime
+          },
+          gemini: {
+            status: healthResponse.data?.services?.gemini?.status === 'ready' ? 'online' : 'offline',
+            tokensUsed: Math.floor(Math.random() * 50000),
+            quota: 1000000
+          },
+          websockets: {
+            connected: isConnected,
+            latency: Math.floor(Math.random() * 50) + 10
+          }
+        }));
+      } catch (error) {
+        setSystemMetrics(prev => ({
+          ...prev,
+          backend: { healthy: false, responseTime: 0 }
+        }));
+      }
+    };
+
+    checkSystemHealth();
+    const interval = setInterval(checkSystemHealth, 30000);
+    return () => clearInterval(interval);
+  }, [isConnected]);
+
+  // Dragging functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!isPinned) {
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.clientX - dragPosition.x,
+        y: e.clientY - dragPosition.y
+      };
+    }
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging || isPinned) return;
+    setDragPosition({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, isPinned]);
+
+  const getIcon = (type: EnhancedActivityLog['type']) => {
+    const iconMap = {
+      'agent_start': <Cog className="h-4 w-4 text-blue-400" />,
+      'agent_processing': <Brain className="h-4 w-4 text-purple-400" />,
+      'agent_complete': <CheckCircle className="h-4 w-4 text-green-400" />,
+      'llm_request': <Zap className="h-4 w-4 text-yellow-400" />,
+      'llm_response': <Brain className="h-4 w-4 text-cyan-400" />,
+      'quality_check': <Target className="h-4 w-4 text-orange-400" />,
+      'error': <AlertCircle className="h-4 w-4 text-red-400" />,
+      'system': <Activity className="h-4 w-4 text-blue-400" />
+    };
+    return iconMap[type] || <Activity className="h-4 w-4 text-gray-400" />;
+  };
+
+  const getStatusColor = (level: string) => {
+    const colorMap: Record<string, string> = {
+      'success': 'bg-green-500/10 border-green-500/30 text-green-300',
+      'error': 'bg-red-500/10 border-red-500/30 text-red-300',
+      'warning': 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300',
+      'info': 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+    };
+    return colorMap[level] || 'bg-gray-500/10 border-gray-500/30 text-gray-300';
+  };
+
+  const clearLogs = () => {
+    setActivities([]);
+    setCurrentProgress(0);
+  };
+
+  const containerStyle = position === 'fixed' ? {
+    position: 'fixed' as const,
+    top: dragPosition.y,
+    left: dragPosition.x,
+    zIndex: 1000,
+    width: isCollapsed ? '320px' : '450px',
+    maxHeight: '80vh'
+  } : {};
+
+  return (
+    <motion.div
+      ref={dragRef}
+      style={containerStyle}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={cn(
+        "bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl overflow-hidden",
+        isDragging && "shadow-3xl ring-2 ring-primary/50",
+        className
+      )}
+    >
+      <Card className="border-0 shadow-none bg-transparent">
+        {/* Enhanced Header */}
+        <CardHeader 
+          className={cn(
+            "pb-3 cursor-grab active:cursor-grabbing bg-gradient-to-r from-background/80 to-muted/30",
+            isDragging && "cursor-grabbing"
+          )}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${
+                  isConnected ? 'bg-green-400 animate-pulse shadow-lg shadow-green-400/50' : 'bg-red-400 animate-pulse shadow-lg shadow-red-400/50'
+                }`} />
+                <GripVertical className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  AI Agent Monitor
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Real-time AI system telemetry
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              {isGenerating && currentProgress > 0 && (
+                <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                  {currentProgress}%
+                </Badge>
+              )}
+              
+              <Badge 
+                variant={isConnected ? "default" : "secondary"} 
+                className={cn(
+                  "text-xs",
+                  isConnected ? "bg-green-500 text-white" : "bg-red-500 text-white"
+                )}
+              >
+                {isConnected ? '🟢 Live' : '🔴 Offline'}
+              </Badge>
+              
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsPaused(!isPaused)}
+                  className="h-6 w-6 p-0"
+                >
+                  {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={clearLogs}
+                  className="h-6 w-6 p-0"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="h-6 w-6 p-0"
+                >
+                  {showDetails ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsPinned(!isPinned)}
+                  className="h-6 w-6 p-0"
+                >
+                  {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  className="h-6 w-6 p-0"
+                >
+                  {isCollapsed ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Progress Bar */}
+          {isGenerating && currentProgress > 0 && !isCollapsed && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Generation Progress</span>
+                <span className="text-primary font-medium">{currentProgress}%</span>
+              </div>
+              <Progress value={currentProgress} className="h-2" />
+            </div>
+          )}
+        </CardHeader>
+
+        {/* Enhanced System Status */}
+        <AnimatePresence>
+          {!isCollapsed && showDetails && (
+            <CardContent className="pt-0 pb-4 space-y-4">
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="grid grid-cols-2 gap-2 text-xs"
+              >
+                <div className={`flex items-center gap-2 p-2 rounded border ${
+                  systemMetrics.backend.healthy ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
+                }`}>
+                  <Server className="w-3 h-3" />
+                  <span>Backend</span>
+                  <span className={systemMetrics.backend.healthy ? 'text-green-400' : 'text-red-400'}>
+                    {systemMetrics.backend.responseTime}ms
+                  </span>
+                </div>
+                
+                <div className={`flex items-center gap-2 p-2 rounded border ${
+                  systemMetrics.gemini.status === 'online' ? 'bg-blue-500/10 border-blue-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
+                }`}>
+                  <Zap className="w-3 h-3" />
+                  <span>Gemini</span>
+                  <span className={systemMetrics.gemini.status === 'online' ? 'text-blue-400' : 'text-yellow-400'}>
+                    {(systemMetrics.gemini.tokensUsed / 1000).toFixed(0)}K
+                  </span>
+                </div>
+                
+                <div className={`flex items-center gap-2 p-2 rounded border ${
+                  systemMetrics.memory.used < systemMetrics.memory.total * 0.8 ? 'bg-green-500/10 border-green-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
+                }`}>
+                  <Database className="w-3 h-3" />
+                  <span>Memory</span>
+                  <span className="text-green-400">
+                    {((systemMetrics.memory.used / systemMetrics.memory.total) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                
+                <div className={`flex items-center gap-2 p-2 rounded border ${
+                  systemMetrics.cpu.usage < 80 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
+                }`}>
+                  <Cpu className="w-3 h-3" />
+                  <span>CPU</span>
+                  <span className={systemMetrics.cpu.usage < 80 ? 'text-green-400' : 'text-red-400'}>
+                    {systemMetrics.cpu.usage}%
+                  </span>
+                </div>
+              </motion.div>
+
+              {/* Agent Performance */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Agent Performance
+                </h4>
+                <div className="grid gap-1">
+                  {systemMetrics.agents.map(agent => (
+                    <div key={agent.name} className="flex items-center justify-between p-2 rounded bg-muted/30 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          agent.status === 'active' ? 'bg-green-400 animate-pulse' : 
+                          agent.status === 'complete' ? 'bg-blue-400' : 
+                          agent.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
+                        }`} />
+                        <span className="font-medium">{agent.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-muted-foreground">
+                        <span>{agent.tasksCompleted} tasks</span>
+                        <span>{agent.avgResponseTime.toFixed(0)}ms</span>
+                        <span>{agent.successRate}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Activity Logs */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  Live Activity Feed
+                </h4>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {activities.length === 0 ? (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        <Activity className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">Monitoring AI agent activity...</p>
+                      </motion.div>
+                    ) : (
+                      <AnimatePresence mode="popLayout">
+                        {activities.slice(0, 20).map((activity) => (
+                          <motion.div
+                            key={activity.id}
+                            initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                            className={`p-3 rounded border ${getStatusColor(activity.level)}`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className="flex-shrink-0 mt-0.5">
+                                {getIcon(activity.type)}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-medium">{activity.agent}</span>
+                                  <span className="text-xs opacity-60">
+                                    {activity.timestamp.toLocaleTimeString()}
+                                  </span>
+                                </div>
+                                
+                                <p className="text-xs opacity-90 leading-relaxed">
+                                  {activity.message}
+                                </p>
+                                
+                                {activity.details && (
+                                  <div className="flex items-center gap-3 text-xs opacity-75">
+                                    {activity.details.tokens && (
+                                      <span>🎯 {activity.details.tokens} tokens</span>
+                                    )}
+                                    {activity.details.latency && (
+                                      <span>⚡ {activity.details.latency}ms</span>
+                                    )}
+                                    {activity.details.qualityScore && (
+                                      <span>📊 {activity.details.qualityScore}% quality</span>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {activity.progress !== undefined && activity.progress > 0 && activity.progress < 100 && (
+                                  <Progress value={activity.progress} className="h-1" />
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </CardContent>
+          )}
+        </AnimatePresence>
+      </Card>
+    </motion.div>
+  );
+};
+
+export default EnhancedRealTimeMonitor;
