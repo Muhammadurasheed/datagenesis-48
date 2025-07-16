@@ -361,8 +361,7 @@ const DataGenerator = () => {
         {/* Enhanced Real-time Monitor */}
         <EnhancedRealTimeMonitor 
           isGenerating={isGenerating}
-          position="fixed"
-          defaultPosition={{ x: 20, y: 20 }}
+          className="fixed bottom-4 right-4"
         />
       </div>
     </div>

@@ -19,11 +19,11 @@ import {
   Info,
   XCircle
 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { ScrollArea } from './ui/scroll-area';
-import { useWebSocket } from '../hooks/useWebSocket';
-import { cn } from '../lib/utils';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { ScrollArea } from '../ui/scroll-area';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { cn } from '../../lib/utils';
 
 interface AgentLog {
   id: string;
@@ -52,11 +52,17 @@ interface AgentLog {
 interface EnhancedRealTimeMonitorProps {
   onClose?: () => void;
   className?: string;
+  isGenerating?: boolean;
+  position?: string;
+  defaultPosition?: { x: number; y: number };
 }
 
 export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = ({ 
   onClose,
-  className
+  className,
+  isGenerating = false,
+  position = 'fixed',
+  defaultPosition = { x: 20, y: 20 }
 }) => {
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -575,7 +581,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
       {!isCollapsed && (
         <>
           {/* Progress Bar */}
-          {currentProgress > 0 && currentProgress < 100 && (
+          {(currentProgress > 0 && currentProgress < 100) || isGenerating && (
             <div className="p-4 border-b border-gray-700/50">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-300">Generation Progress</span>
