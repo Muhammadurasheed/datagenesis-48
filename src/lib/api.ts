@@ -57,6 +57,40 @@ export class ApiService {
     }
   }
 
+  static async generateData(data: {
+    prompt: string;
+    rowCount: number;
+    outputFormat: string;
+    includeHeaders?: boolean;
+    privacyLevel?: string;
+    biasReduction?: boolean;
+    qualityChecks?: boolean;
+    aiModel?: string;
+  }): Promise<any> {
+    try {
+      const response = await api.post('/generation/generate-local', {
+        description: data.prompt,
+        config: {
+          rowCount: data.rowCount,
+          domain: 'general',
+          data_type: 'tabular',
+          quality_level: 'high',
+          privacy_level: data.privacyLevel || 'medium'
+        },
+        schema: {},
+        sourceData: []
+      });
+      return {
+        success: true,
+        data: response.data.data,
+        metadata: response.data.metadata
+      };
+    } catch (error) {
+      console.error('Data generation failed:', error);
+      throw error;
+    }
+  }
+
   static async generateSchemaFromDescription(data: {
     description: string;
     domain: string;
