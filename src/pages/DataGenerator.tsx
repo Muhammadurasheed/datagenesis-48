@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Download } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -11,10 +11,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { toast } from 'sonner';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { ApiService } from '../lib/api';
-import { cn } from '../lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import EnhancedDataReviewEditor from '../components/unified/EnhancedDataReviewEditor';
 import EnhancedRealTimeMonitor from '../components/unified/EnhancedRealTimeMonitor';
 

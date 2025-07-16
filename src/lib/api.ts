@@ -57,6 +57,26 @@ export class ApiService {
     }
   }
 
+  static async generateData(data: {
+    prompt: string;
+    rowCount: number;
+  }): Promise<any> {
+    try {
+      const response = await api.post('/generation/generate-local', {
+        description: data.prompt,
+        config: {
+          num_records: data.rowCount
+        }
+      }, {
+        timeout: 180000, // 3 minutes for complex AI generation
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Data generation failed:', error);
+      throw error;
+    }
+  }
+
   static async generateSchemaFromDescription(data: {
     description: string;
     domain: string;
