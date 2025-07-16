@@ -7,14 +7,10 @@ import {
   Zap, 
   CheckCircle, 
   AlertCircle, 
-  Shield,
   Target,
-  Search,
-  Cog,
-  Package,
   Users,
-  Wifi,
-  WifiOff,
+  Database,
+  Server,
   Minimize2,
   Maximize2,
   Pause,
@@ -23,14 +19,9 @@ import {
   GripVertical,
   Pin,
   PinOff,
-  TrendingUp,
-  Clock,
   Cpu,
-  Gauge,
-  Database,
-  Server,
-  Eye,
-  EyeOff
+  X,
+  Circle
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
@@ -38,7 +29,6 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import { ApiService } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 interface EnhancedActivityLog {
@@ -97,7 +87,6 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const [showDetails, setShowDetails] = useState(true);
   const [dragPosition, setDragPosition] = useState(defaultPosition);
   const [isDragging, setIsDragging] = useState(false);
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({
@@ -118,7 +107,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
   const dragRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
 
-  const { isConnected, lastMessage } = useWebSocket('guest_user');
+  const { isConnected } = useWebSocket('guest_user');
 
   // Simulate realistic AI agent activities
   useEffect(() => {
@@ -191,43 +180,6 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
     return () => clearInterval(interval);
   }, [isGenerating, isPaused]);
 
-  // System health monitoring
-  useEffect(() => {
-    const checkSystemHealth = async () => {
-      try {
-        const startTime = Date.now();
-        const healthResponse = await ApiService.healthCheck();
-        const responseTime = Date.now() - startTime;
-
-        setSystemMetrics(prev => ({
-          ...prev,
-          backend: {
-            healthy: healthResponse.healthy,
-            responseTime
-          },
-          gemini: {
-            status: healthResponse.data?.services?.gemini?.status === 'ready' ? 'online' : 'offline',
-            tokensUsed: Math.floor(Math.random() * 50000),
-            quota: 1000000
-          },
-          websockets: {
-            connected: isConnected,
-            latency: Math.floor(Math.random() * 50) + 10
-          }
-        }));
-      } catch (error) {
-        setSystemMetrics(prev => ({
-          ...prev,
-          backend: { healthy: false, responseTime: 0 }
-        }));
-      }
-    };
-
-    checkSystemHealth();
-    const interval = setInterval(checkSystemHealth, 30000);
-    return () => clearInterval(interval);
-  }, [isConnected]);
-
   // Dragging functionality
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isPinned) {
@@ -264,7 +216,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
 
   const getIcon = (type: EnhancedActivityLog['type']) => {
     const iconMap = {
-      'agent_start': <Cog className="h-4 w-4 text-blue-400" />,
+      'agent_start': <Brain className="h-4 w-4 text-blue-400" />,
       'agent_processing': <Brain className="h-4 w-4 text-purple-400" />,
       'agent_complete': <CheckCircle className="h-4 w-4 text-green-400" />,
       'llm_request': <Zap className="h-4 w-4 text-yellow-400" />,
@@ -278,12 +230,12 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
 
   const getStatusColor = (level: string) => {
     const colorMap: Record<string, string> = {
-      'success': 'bg-green-500/10 border-green-500/30 text-green-300',
-      'error': 'bg-red-500/10 border-red-500/30 text-red-300',
-      'warning': 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300',
-      'info': 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+      'success': 'bg-green-500/20 border-green-500/50 text-green-100',
+      'error': 'bg-red-500/20 border-red-500/50 text-red-100',
+      'warning': 'bg-yellow-500/20 border-yellow-500/50 text-yellow-100',
+      'info': 'bg-blue-500/20 border-blue-500/50 text-blue-100'
     };
-    return colorMap[level] || 'bg-gray-500/10 border-gray-500/30 text-gray-300';
+    return colorMap[level] || 'bg-gray-500/20 border-gray-500/50 text-gray-100';
   };
 
   const clearLogs = () => {
@@ -296,7 +248,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
     top: dragPosition.y,
     left: dragPosition.x,
     zIndex: 1000,
-    width: isCollapsed ? '320px' : '450px',
+    width: isCollapsed ? '320px' : '500px',
     maxHeight: '80vh'
   } : {};
 
@@ -307,7 +259,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
-        "bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl overflow-hidden",
+        "bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden",
         isDragging && "shadow-3xl ring-2 ring-primary/50",
         className
       )}
@@ -316,7 +268,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
         {/* Enhanced Header */}
         <CardHeader 
           className={cn(
-            "pb-3 cursor-grab active:cursor-grabbing bg-gradient-to-r from-background/80 to-muted/30",
+            "pb-3 cursor-grab active:cursor-grabbing bg-gradient-to-r from-slate-800/80 to-slate-700/30 border-b border-slate-700/50",
             isDragging && "cursor-grabbing"
           )}
           onMouseDown={handleMouseDown}
@@ -327,14 +279,14 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                 <div className={`w-3 h-3 rounded-full ${
                   isConnected ? 'bg-green-400 animate-pulse shadow-lg shadow-green-400/50' : 'bg-red-400 animate-pulse shadow-lg shadow-red-400/50'
                 }`} />
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                <GripVertical className="w-4 h-4 text-slate-400" />
               </div>
               <div>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
                   <Brain className="w-5 h-5 text-primary" />
                   AI Agent Monitor
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   Real-time AI system telemetry
                 </p>
               </div>
@@ -342,7 +294,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
             
             <div className="flex items-center gap-1">
               {isGenerating && currentProgress > 0 && (
-                <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/10">
                   {currentProgress}%
                 </Badge>
               )}
@@ -362,7 +314,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                   size="sm"
                   variant="ghost"
                   onClick={() => setIsPaused(!isPaused)}
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-700"
                 >
                   {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
                 </Button>
@@ -371,7 +323,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                   size="sm"
                   variant="ghost"
                   onClick={clearLogs}
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-700"
                 >
                   <RotateCcw className="h-3 w-3" />
                 </Button>
@@ -379,17 +331,8 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setShowDetails(!showDetails)}
-                  className="h-6 w-6 p-0"
-                >
-                  {showDetails ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                </Button>
-                
-                <Button
-                  size="sm"
-                  variant="ghost"
                   onClick={() => setIsPinned(!isPinned)}
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-700"
                 >
                   {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
                 </Button>
@@ -398,7 +341,7 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                   size="sm"
                   variant="ghost"
                   onClick={() => setIsCollapsed(!isCollapsed)}
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-700"
                 >
                   {isCollapsed ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
                 </Button>
@@ -410,17 +353,17 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
           {isGenerating && currentProgress > 0 && !isCollapsed && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Generation Progress</span>
+                <span className="text-slate-400">Generation Progress</span>
                 <span className="text-primary font-medium">{currentProgress}%</span>
               </div>
-              <Progress value={currentProgress} className="h-2" />
+              <Progress value={currentProgress} className="h-2 bg-slate-700" />
             </div>
           )}
         </CardHeader>
 
         {/* Enhanced System Status */}
         <AnimatePresence>
-          {!isCollapsed && showDetails && (
+          {!isCollapsed && (
             <CardContent className="pt-0 pb-4 space-y-4">
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
@@ -428,68 +371,85 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                 exit={{ height: 0, opacity: 0 }}
                 className="grid grid-cols-2 gap-2 text-xs"
               >
-                <div className={`flex items-center gap-2 p-2 rounded border ${
+                <div className={`flex items-center gap-2 p-3 rounded-lg border ${
                   systemMetrics.backend.healthy ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
                 }`}>
-                  <Server className="w-3 h-3" />
-                  <span>Backend</span>
-                  <span className={systemMetrics.backend.healthy ? 'text-green-400' : 'text-red-400'}>
-                    {systemMetrics.backend.responseTime}ms
-                  </span>
+                  <Server className="w-4 h-4" />
+                  <div className="flex-1">
+                    <div className="text-white font-medium">Backend</div>
+                    <div className={systemMetrics.backend.healthy ? 'text-green-400' : 'text-red-400'}>
+                      {systemMetrics.backend.responseTime}ms
+                    </div>
+                  </div>
                 </div>
                 
-                <div className={`flex items-center gap-2 p-2 rounded border ${
+                <div className={`flex items-center gap-2 p-3 rounded-lg border ${
                   systemMetrics.gemini.status === 'online' ? 'bg-blue-500/10 border-blue-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
                 }`}>
-                  <Zap className="w-3 h-3" />
-                  <span>Gemini</span>
-                  <span className={systemMetrics.gemini.status === 'online' ? 'text-blue-400' : 'text-yellow-400'}>
-                    {(systemMetrics.gemini.tokensUsed / 1000).toFixed(0)}K
-                  </span>
+                  <Zap className="w-4 h-4" />
+                  <div className="flex-1">
+                    <div className="text-white font-medium">Gemini</div>
+                    <div className={systemMetrics.gemini.status === 'online' ? 'text-blue-400' : 'text-yellow-400'}>
+                      {(systemMetrics.gemini.tokensUsed / 1000).toFixed(0)}K tokens
+                    </div>
+                  </div>
                 </div>
                 
-                <div className={`flex items-center gap-2 p-2 rounded border ${
+                <div className={`flex items-center gap-2 p-3 rounded-lg border ${
                   systemMetrics.memory.used < systemMetrics.memory.total * 0.8 ? 'bg-green-500/10 border-green-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
                 }`}>
-                  <Database className="w-3 h-3" />
-                  <span>Memory</span>
-                  <span className="text-green-400">
-                    {((systemMetrics.memory.used / systemMetrics.memory.total) * 100).toFixed(0)}%
-                  </span>
+                  <Database className="w-4 h-4" />
+                  <div className="flex-1">
+                    <div className="text-white font-medium">Memory</div>
+                    <div className="text-green-400">
+                      {((systemMetrics.memory.used / systemMetrics.memory.total) * 100).toFixed(0)}%
+                    </div>
+                  </div>
                 </div>
                 
-                <div className={`flex items-center gap-2 p-2 rounded border ${
+                <div className={`flex items-center gap-2 p-3 rounded-lg border ${
                   systemMetrics.cpu.usage < 80 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
                 }`}>
-                  <Cpu className="w-3 h-3" />
-                  <span>CPU</span>
-                  <span className={systemMetrics.cpu.usage < 80 ? 'text-green-400' : 'text-red-400'}>
-                    {systemMetrics.cpu.usage}%
-                  </span>
+                  <Cpu className="w-4 h-4" />
+                  <div className="flex-1">
+                    <div className="text-white font-medium">CPU</div>
+                    <div className={systemMetrics.cpu.usage < 80 ? 'text-green-400' : 'text-red-400'}>
+                      {systemMetrics.cpu.usage}%
+                    </div>
+                  </div>
                 </div>
               </motion.div>
 
               {/* Agent Performance */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium flex items-center gap-2 text-white">
                   <Users className="w-4 h-4" />
                   Agent Performance
                 </h4>
-                <div className="grid gap-1">
+                <div className="grid gap-2">
                   {systemMetrics.agents.map(agent => (
-                    <div key={agent.name} className="flex items-center justify-between p-2 rounded bg-muted/30 text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
+                    <div key={agent.name} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/30 text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
                           agent.status === 'active' ? 'bg-green-400 animate-pulse' : 
                           agent.status === 'complete' ? 'bg-blue-400' : 
                           agent.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
                         }`} />
-                        <span className="font-medium">{agent.name}</span>
+                        <span className="font-medium text-white">{agent.name}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-muted-foreground">
-                        <span>{agent.tasksCompleted} tasks</span>
-                        <span>{agent.avgResponseTime.toFixed(0)}ms</span>
-                        <span>{agent.successRate}%</span>
+                      <div className="flex items-center gap-4 text-slate-400">
+                        <div className="text-center">
+                          <div className="text-white font-medium">{agent.tasksCompleted}</div>
+                          <div className="text-xs">tasks</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-white font-medium">{agent.avgResponseTime.toFixed(0)}ms</div>
+                          <div className="text-xs">avg</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-white font-medium">{agent.successRate}%</div>
+                          <div className="text-xs">success</div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -497,18 +457,21 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
               </div>
 
               {/* Activity Logs */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium flex items-center gap-2 text-white">
                   <Activity className="w-4 h-4" />
                   Live Activity Feed
+                  <Badge variant="outline" className="ml-auto text-xs border-slate-600 text-slate-300">
+                    {activities.length} logs
+                  </Badge>
                 </h4>
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-2">
+                <ScrollArea className="h-[300px] rounded-lg bg-slate-800/30 border border-slate-700/30">
+                  <div className="space-y-2 p-3">
                     {activities.length === 0 ? (
                       <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="text-center py-8 text-muted-foreground"
+                        className="text-center py-8 text-slate-400"
                       >
                         <Activity className="h-8 w-8 mx-auto mb-2 opacity-30" />
                         <p className="text-sm">Monitoring AI agent activity...</p>
@@ -521,41 +484,50 @@ export const EnhancedRealTimeMonitor: React.FC<EnhancedRealTimeMonitorProps> = (
                             initial={{ opacity: 0, x: -20, scale: 0.95 }}
                             animate={{ opacity: 1, x: 0, scale: 1 }}
                             exit={{ opacity: 0, x: 20, scale: 0.95 }}
-                            className={`p-3 rounded border ${getStatusColor(activity.level)}`}
+                            className={`p-3 rounded-lg border ${getStatusColor(activity.level)}`}
                           >
-                            <div className="flex items-start gap-2">
+                            <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 mt-0.5">
                                 {getIcon(activity.type)}
                               </div>
                               
                               <div className="flex-1 min-w-0 space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs font-medium">{activity.agent}</span>
-                                  <span className="text-xs opacity-60">
+                                  <span className="text-sm font-medium text-white">{activity.agent}</span>
+                                  <span className="text-xs text-slate-400">
                                     {activity.timestamp.toLocaleTimeString()}
                                   </span>
                                 </div>
                                 
-                                <p className="text-xs opacity-90 leading-relaxed">
+                                <p className="text-sm text-slate-200 leading-relaxed">
                                   {activity.message}
                                 </p>
                                 
                                 {activity.details && (
-                                  <div className="flex items-center gap-3 text-xs opacity-75">
+                                  <div className="flex items-center gap-3 text-xs text-slate-400">
                                     {activity.details.tokens && (
-                                      <span>🎯 {activity.details.tokens} tokens</span>
+                                      <span className="flex items-center gap-1">
+                                        <Circle className="w-2 h-2 fill-current" />
+                                        {activity.details.tokens} tokens
+                                      </span>
                                     )}
                                     {activity.details.latency && (
-                                      <span>⚡ {activity.details.latency}ms</span>
+                                      <span className="flex items-center gap-1">
+                                        <Circle className="w-2 h-2 fill-current" />
+                                        {activity.details.latency}ms
+                                      </span>
                                     )}
                                     {activity.details.qualityScore && (
-                                      <span>📊 {activity.details.qualityScore}% quality</span>
+                                      <span className="flex items-center gap-1">
+                                        <Circle className="w-2 h-2 fill-current" />
+                                        {activity.details.qualityScore}% quality
+                                      </span>
                                     )}
                                   </div>
                                 )}
                                 
                                 {activity.progress !== undefined && activity.progress > 0 && activity.progress < 100 && (
-                                  <Progress value={activity.progress} className="h-1" />
+                                  <Progress value={activity.progress} className="h-1 bg-slate-700" />
                                 )}
                               </div>
                             </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Edit3, 
@@ -9,27 +9,21 @@ import {
   Trash2, 
   RotateCcw,
   Sparkles,
-  MessageSquare,
   Wand2,
+  Download,
   FileText,
+  Database,
   FileSpreadsheet,
   Search,
-  ArrowUp,
-  ArrowDown,
-  Eye,
-  EyeOff,
-  CheckSquare,
-  Square,
-  Download,
   Filter,
   SortAsc,
   SortDesc,
-  Maximize2,
-  Minimize2,
-  Stars,
-  Zap,
+  Check,
+  AlertCircle,
   TrendingUp,
-  Database
+  Shield,
+  Users,
+  Target
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -37,15 +31,8 @@ import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
+import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '../ui/table';
 import { Progress } from '../ui/progress';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -63,7 +50,6 @@ interface EnhancedDataReviewEditorProps {
   onPromptEdit: (prompt: string) => void;
   onClose?: () => void;
   isEditing?: boolean;
-  isOpen?: boolean;
 }
 
 const EnhancedDataReviewEditor: React.FC<EnhancedDataReviewEditorProps> = ({
@@ -72,8 +58,7 @@ const EnhancedDataReviewEditor: React.FC<EnhancedDataReviewEditorProps> = ({
   onDataUpdate,
   onPromptEdit,
   onClose,
-  isEditing = false,
-  isOpen = true
+  isEditing = false
 }) => {
   const [editMode, setEditMode] = useState<'manual' | 'prompt' | null>(null);
   const [editingCell, setEditingCell] = useState<{row: number, col: string} | null>(null);
@@ -82,11 +67,11 @@ const EnhancedDataReviewEditor: React.FC<EnhancedDataReviewEditorProps> = ({
   const [localData, setLocalData] = useState(data);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
+  const [selectedFormat, setSelectedFormat] = useState<'csv' | 'json' | 'excel'>('csv');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [showMetrics, setShowMetrics] = useState(true);
-  const [isCompact, setIsCompact] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(true);
 
   // Update local data when prop changes
   useEffect(() => {
@@ -278,515 +263,495 @@ const EnhancedDataReviewEditor: React.FC<EnhancedDataReviewEditorProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   if (localData.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="flex items-center justify-center min-h-[60vh]"
-      >
-        <Card className="w-full max-w-md">
-          <CardContent className="p-12 text-center">
-            <Database className="w-16 h-16 mx-auto mb-6 text-muted-foreground/50" />
-            <h3 className="text-xl font-semibold mb-2">No Data Available</h3>
-            <p className="text-muted-foreground">Generate some data first to start reviewing and editing.</p>
-          </CardContent>
-        </Card>
-      </motion.div>
+      <Card className="bg-slate-900/95 border-slate-700">
+        <CardContent className="p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+          <p className="text-slate-300 text-lg">No data available for review</p>
+          <p className="text-slate-500 text-sm mt-2">Generate some data first to start editing</p>
+        </CardContent>
+      </Card>
     );
   }
 
   const columns = Object.keys(localData[0] || {});
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-8 p-6"
-    >
-      {/* Beautiful Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-        <div className="relative p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/20">
-                  <Stars className="w-6 h-6 text-primary" />
-                </div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                  Data Review & Editor
-                </h1>
-              </div>
-              <p className="text-lg text-muted-foreground">
-                Review, edit, and perfect your AI-generated synthetic data
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCompact(!isCompact)}
-                className="backdrop-blur-sm"
-              >
-                {isCompact ? <Maximize2 className="w-4 h-4 mr-2" /> : <Minimize2 className="w-4 h-4 mr-2" />}
-                {isCompact ? 'Expand' : 'Compact'}
-              </Button>
-              
-              {onClose && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onClose}
-                  className="backdrop-blur-sm"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Close
-                </Button>
-              )}
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+              Review & Edit Generated Data
+            </h1>
+            <p className="text-slate-400 mt-2">
+              Review, edit, and refine your synthetic data before downloading
+            </p>
           </div>
-
-          {/* Enhanced Quality Metrics */}
-          {showMetrics && metadata && !isCompact && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="grid grid-cols-1 md:grid-cols-5 gap-4"
-            >
-              {metadata.qualityScore !== undefined && (
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30 p-6">
-                  <div className="absolute top-2 right-2">
-                    <TrendingUp className="w-5 h-5 text-green-400" />
-                  </div>
-                  <div className="text-3xl font-bold text-green-400 mb-1">{metadata.qualityScore}%</div>
-                  <div className="text-sm text-green-300/80 mb-2">Quality Score</div>
-                  <Progress value={metadata.qualityScore} className="h-1.5" />
-                </div>
-              )}
-              
-              {metadata.privacyScore !== undefined && (
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 p-6">
-                  <div className="absolute top-2 right-2">
-                    <Zap className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div className="text-3xl font-bold text-blue-400 mb-1">{metadata.privacyScore}%</div>
-                  <div className="text-sm text-blue-300/80 mb-2">Privacy Score</div>
-                  <Progress value={metadata.privacyScore} className="h-1.5" />
-                </div>
-              )}
-              
-              {metadata.biasScore !== undefined && (
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 p-6">
-                  <div className="absolute top-2 right-2">
-                    <Stars className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <div className="text-3xl font-bold text-purple-400 mb-1">{metadata.biasScore}%</div>
-                  <div className="text-sm text-purple-300/80 mb-2">Bias Score</div>
-                  <Progress value={metadata.biasScore} className="h-1.5" />
-                </div>
-              )}
-              
-              <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 p-6">
-                <div className="absolute top-2 right-2">
-                  <Database className="w-5 h-5 text-orange-400" />
-                </div>
-                <div className="text-3xl font-bold text-orange-400 mb-1">{localData.length}</div>
-                <div className="text-sm text-orange-300/80">Total Rows</div>
-              </div>
-              
-              <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-teal-500/20 to-cyan-500/20 border border-teal-500/30 p-6">
-                <div className="absolute top-2 right-2">
-                  <Filter className="w-5 h-5 text-teal-400" />
-                </div>
-                <div className="text-3xl font-bold text-teal-400 mb-1">{columns.length}</div>
-                <div className="text-sm text-teal-300/80">Columns</div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* Enhanced Controls */}
-      <div className="flex flex-col lg:flex-row gap-6 justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant={editMode === 'manual' ? 'default' : 'outline'}
-            onClick={() => setEditMode(editMode === 'manual' ? null : 'manual')}
-            className="transition-all duration-200"
-          >
-            <Edit3 className="w-4 h-4 mr-2" />
-            Manual Edit
-          </Button>
           
-          <Button
-            variant={editMode === 'prompt' ? 'default' : 'outline'}
-            onClick={() => setEditMode(editMode === 'prompt' ? null : 'prompt')}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
-          >
-            <Wand2 className="w-4 h-4 mr-2" />
-            AI Edit
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={resetData}
-            className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Reset
-          </Button>
-
-          {selectedRows.size > 0 && (
+          {onClose && (
             <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
-              className="animate-pulse"
+              variant="outline"
+              onClick={onClose}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete {selectedRows.size} rows
+              <X className="w-4 h-4 mr-2" />
+              Close
             </Button>
           )}
-        </div>
+        </motion.div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search data..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64 bg-background/50 backdrop-blur-sm"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced AI Prompt Editor */}
-      <AnimatePresence>
-        {editMode === 'prompt' && (
+        {/* Quality Metrics */}
+        {showMetadata && metadata && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ type: "spring", duration: 0.5 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
           >
-            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 border-purple-500/30">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5" />
-              <CardHeader className="relative">
-                <CardTitle className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    AI-Powered Data Enhancement
-                  </span>
+            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/30 border-slate-700/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Sparkles className="w-5 h-5 text-yellow-400" />
+                  Data Quality Metrics
                 </CardTitle>
               </CardHeader>
-              <CardContent className="relative space-y-6">
-                <Textarea
-                  placeholder="✨ Describe your data improvements... 
-
-Examples:
-• 'Make ages more realistic for healthcare data'
-• 'Add more variety to product categories'
-• 'Ensure gender balance across all departments'
-• 'Fix inconsistent date formats'
-• 'Generate more diverse names and locations'"
-                  value={promptText}
-                  onChange={(e) => setPromptText(e.target.value)}
-                  className="min-h-[120px] bg-background/50 backdrop-blur-sm border-purple-200/50 focus:border-purple-400"
-                />
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={handlePromptSubmit}
-                    disabled={!promptText.trim() || isEditing}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
-                  >
-                    {isEditing ? (
-                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                    ) : (
-                      <Sparkles className="w-4 h-4 mr-2" />
-                    )}
-                    {isEditing ? 'Enhancing...' : 'Enhance Data'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setEditMode(null)}
-                    className="backdrop-blur-sm"
-                  >
-                    Cancel
-                  </Button>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                  {metadata.qualityScore !== undefined && (
+                    <div className="text-center p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                      <TrendingUp className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                      <div className="text-2xl font-bold text-green-400">{metadata.qualityScore}%</div>
+                      <div className="text-sm text-slate-400">Quality Score</div>
+                      <Progress value={metadata.qualityScore} className="mt-2 h-2" />
+                    </div>
+                  )}
+                  {metadata.privacyScore !== undefined && (
+                    <div className="text-center p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                      <Shield className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                      <div className="text-2xl font-bold text-blue-400">{metadata.privacyScore}%</div>
+                      <div className="text-sm text-slate-400">Privacy Score</div>
+                      <Progress value={metadata.privacyScore} className="mt-2 h-2" />
+                    </div>
+                  )}
+                  {metadata.biasScore !== undefined && (
+                    <div className="text-center p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                      <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                      <div className="text-2xl font-bold text-purple-400">{metadata.biasScore}%</div>
+                      <div className="text-sm text-slate-400">Bias Score</div>
+                      <Progress value={metadata.biasScore} className="mt-2 h-2" />
+                    </div>
+                  )}
+                  <div className="text-center p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                    <Target className="w-8 h-8 text-orange-400 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-orange-400">{localData.length}</div>
+                    <div className="text-sm text-slate-400">Total Rows</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                    <Database className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-cyan-400">{columns.length}</div>
+                    <div className="text-sm text-slate-400">Columns</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
         )}
-      </AnimatePresence>
 
-      {/* Enhanced Data Table */}
-      <Card className="overflow-hidden bg-background/95 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-background/80 to-muted/30 backdrop-blur-sm">
-          <div className="flex items-center gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-primary" />
-              Data Table ({filteredAndSortedData.length} rows)
-            </CardTitle>
+        {/* Controls */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex flex-col lg:flex-row gap-4 justify-between"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant={editMode === 'manual' ? "default" : "outline"}
+              onClick={() => setEditMode(editMode === 'manual' ? null : 'manual')}
+              className={editMode === 'manual' 
+                ? "bg-blue-500 hover:bg-blue-600 text-white" 
+                : "border-slate-600 text-slate-300 hover:bg-slate-700"
+              }
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              Manual Edit
+            </Button>
             
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Rows per page:</span>
-              <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                <SelectTrigger className="w-20 h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {editMode === 'manual' && (
+            <Button
+              variant={editMode === 'prompt' ? "default" : "outline"}
+              onClick={() => setEditMode(editMode === 'prompt' ? null : 'prompt')}
+              className={editMode === 'prompt' 
+                ? "bg-purple-500 hover:bg-purple-600 text-white" 
+                : "border-slate-600 text-slate-300 hover:bg-slate-700"
+              }
+            >
+              <Wand2 className="w-4 h-4 mr-2" />
+              AI Edit
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={resetData}
+              className="border-orange-500/30 text-orange-300 hover:bg-orange-500/20"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+
+            {selectedRows.size > 0 && (
               <Button
-                size="sm"
-                onClick={handleAddRow}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                variant="destructive"
+                onClick={handleBulkDelete}
+                className="bg-red-500 hover:bg-red-600"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Row
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete {selectedRows.size} rows
               </Button>
             )}
-            
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadData('csv')}
-                className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                CSV
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadData('json')}
-                className="hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300"
-              >
-                JSON
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadData('excel')}
-                className="hover:bg-green-50 hover:text-green-700 hover:border-green-300"
-              >
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Excel
-              </Button>
-            </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="border rounded-md overflow-hidden">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  {editMode === 'manual' && (
-                    <TableHead className="w-12">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleSelectAll}
-                        className="p-1 hover:bg-primary/10"
-                      >
-                        {selectedRows.size === paginatedData.length ? (
-                          <CheckSquare className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Square className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </TableHead>
-                  )}
-                  {columns.map((key) => (
-                    <TableHead key={key} className="min-w-32">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort(key)}
-                        className="flex items-center gap-2 font-medium hover:bg-primary/10 hover:text-primary"
-                      >
-                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
-                        {sortConfig?.key === key && (
-                          sortConfig.direction === 'asc' ? 
-                            <SortAsc className="w-3 h-3 text-primary" /> : 
-                            <SortDesc className="w-3 h-3 text-primary" />
-                        )}
-                      </Button>
-                    </TableHead>
-                  ))}
-                  {editMode === 'manual' && (
-                    <TableHead className="w-20">Actions</TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedData.map((row, rowIndex) => (
-                  <TableRow key={rowIndex} className="hover:bg-muted/30 transition-colors">
-                    {editMode === 'manual' && (
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSelectRow(rowIndex)}
-                          className="p-1 hover:bg-primary/10"
-                        >
-                          {selectedRows.has(rowIndex) ? (
-                            <CheckSquare className="w-4 h-4 text-primary" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </TableCell>
-                    )}
-                    {columns.map((key) => (
-                      <TableCell key={key}>
-                        {editMode === 'manual' && editingCell?.row === rowIndex && editingCell?.col === key ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              className="h-8 text-sm"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleCellSave();
-                                if (e.key === 'Escape') handleCellCancel();
-                              }}
-                            />
-                            <Button
-                              size="sm"
-                              onClick={handleCellSave}
-                              className="h-6 w-6 p-0 bg-green-600 hover:bg-green-700"
-                            >
-                              <Save className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleCellCancel}
-                              className="h-6 w-6 p-0"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div
-                            className={`text-sm p-2 rounded transition-colors ${
-                              editMode === 'manual' ? 'cursor-pointer hover:bg-primary/5 hover:text-primary' : ''
-                            }`}
-                            onClick={() => editMode === 'manual' && handleCellEdit(rowIndex, key, row[key])}
-                          >
-                            {String(row[key]).length > 50 
-                              ? `${String(row[key]).substring(0, 50)}...` 
-                              : String(row[key]) || '-'
-                            }
-                          </div>
-                        )}
-                      </TableCell>
-                    ))}
-                    {editMode === 'manual' && (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleRowDelete(rowIndex)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          
-          {/* Enhanced Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between p-6 bg-muted/20">
-              <p className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} of {filteredAndSortedData.length} entries
-              </p>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
-                    return (
-                      <Button
-                        key={page}
-                        variant={page === currentPage ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentPage(page)}
-                        className="w-8 h-8 p-0"
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Enhanced Summary */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="px-4 py-2">
-            <Database className="w-4 h-4 mr-2" />
-            {localData.length} rows
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search data..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64 bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+            <Filter className="w-5 h-5 text-slate-400" />
+          </div>
+        </motion.div>
+
+        {/* AI Prompt Editor */}
+        <AnimatePresence>
+          {editMode === 'prompt' && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Card className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Wand2 className="w-5 h-5 text-purple-400" />
+                    AI-Powered Data Editing
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Textarea
+                    placeholder="Describe how you'd like to modify the data... e.g., 'Make the ages more diverse', 'Add more variety to the names', 'Increase salary ranges', 'Fix inconsistent date formats'"
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                    className="bg-slate-800 border-slate-600 text-white min-h-[120px] resize-none"
+                  />
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={handlePromptSubmit}
+                      disabled={!promptText.trim() || isEditing}
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                    >
+                      {isEditing ? (
+                        <>
+                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Apply AI Changes
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditMode(null)}
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Data Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-4">
+                <CardTitle className="text-white">
+                  Data Table ({filteredAndSortedData.length} rows)
+                </CardTitle>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-400">Rows per page:</span>
+                  <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                    <SelectTrigger className="w-20 bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                {editMode === 'manual' && (
+                  <Button
+                    onClick={handleAddRow}
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Row
+                  </Button>
+                )}
+                
+                <div className="flex gap-1">
+                  {[
+                    { format: 'csv' as const, icon: FileText, label: 'CSV' },
+                    { format: 'json' as const, icon: Database, label: 'JSON' },
+                    { format: 'excel' as const, icon: FileSpreadsheet, label: 'Excel' }
+                  ].map(({ format, icon: Icon }) => (
+                    <Button
+                      key={format}
+                      variant={selectedFormat === format ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedFormat(format)}
+                      className={selectedFormat === format 
+                        ? "bg-purple-500 hover:bg-purple-600 text-white" 
+                        : "border-slate-600 text-slate-300 hover:bg-slate-700"
+                      }
+                    >
+                      <Icon className="w-4 h-4" />
+                    </Button>
+                  ))}
+                  <Button
+                    onClick={() => downloadData(selectedFormat)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="border border-slate-700/50 rounded-lg overflow-hidden">
+                <ScrollArea className="h-[600px]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-700/50 sticky top-0 z-10">
+                        <tr>
+                          {editMode === 'manual' && (
+                            <th className="px-4 py-4 text-left text-sm font-medium text-slate-300 w-16">
+                              <input
+                                type="checkbox"
+                                checked={selectedRows.size === paginatedData.length && paginatedData.length > 0}
+                                onChange={handleSelectAll}
+                                className="rounded border-slate-600 bg-slate-700 text-purple-500 focus:ring-purple-500"
+                              />
+                            </th>
+                          )}
+                          {editMode === 'manual' && (
+                            <th className="px-4 py-4 text-left text-sm font-medium text-slate-300 w-20">
+                              Actions
+                            </th>
+                          )}
+                          {columns.map((key) => (
+                            <th 
+                              key={key} 
+                              className="px-4 py-4 text-left text-sm font-medium text-slate-300 cursor-pointer hover:bg-slate-600/50 transition-colors"
+                              onClick={() => handleSort(key)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                {sortConfig?.key === key && (
+                                  sortConfig.direction === 'asc' 
+                                    ? <SortAsc className="w-4 h-4 text-blue-400" />
+                                    : <SortDesc className="w-4 h-4 text-blue-400" />
+                                )}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedData.map((row, rowIndex) => (
+                          <tr key={rowIndex} className="border-t border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                            {editMode === 'manual' && (
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.has(rowIndex)}
+                                  onChange={() => handleSelectRow(rowIndex)}
+                                  className="rounded border-slate-600 bg-slate-700 text-purple-500 focus:ring-purple-500"
+                                />
+                              </td>
+                            )}
+                            {editMode === 'manual' && (
+                              <td className="px-4 py-3">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRowDelete(rowIndex)}
+                                  className="h-8 w-8 p-0 bg-red-500/20 hover:bg-red-500 border-red-500/30"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </td>
+                            )}
+                            {columns.map((key) => (
+                              <td key={key} className="px-4 py-3">
+                                {editMode === 'manual' && editingCell?.row === rowIndex && editingCell?.col === key ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={editValue}
+                                      onChange={(e) => setEditValue(e.target.value)}
+                                      className="h-8 text-sm bg-slate-700 border-slate-600 text-white"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleCellSave();
+                                        if (e.key === 'Escape') handleCellCancel();
+                                      }}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={handleCellSave}
+                                      className="h-6 w-6 p-0 bg-green-500 hover:bg-green-600"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={handleCellCancel}
+                                      className="h-6 w-6 p-0 border-slate-600 hover:bg-slate-700"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={`text-sm text-slate-200 ${
+                                      editMode === 'manual' ? 'cursor-pointer hover:bg-slate-600/50 px-3 py-2 rounded-md transition-colors' : ''
+                                    }`}
+                                    onClick={() => editMode === 'manual' && handleCellEdit(rowIndex, key, row[key])}
+                                  >
+                                    {String(row[key]).length > 50 
+                                      ? `${String(row[key]).substring(0, 50)}...` 
+                                      : String(row[key]) || '-'
+                                    }
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </ScrollArea>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between p-4 border-t border-slate-700/50 bg-slate-800/30">
+                    <div className="text-sm text-slate-400">
+                      Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} of {filteredAndSortedData.length} entries
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                          if (page > totalPages) return null;
+                          return (
+                            <Button
+                              key={page}
+                              variant={page === currentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className={page === currentPage 
+                                ? "bg-purple-500 hover:bg-purple-600 text-white" 
+                                : "border-slate-600 text-slate-300 hover:bg-slate-700"
+                              }
+                            >
+                              {page}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="flex items-center gap-4 text-sm"
+        >
+          <Badge variant="outline" className="border-slate-600 text-slate-300">
+            {localData.length} total rows
           </Badge>
-          <Badge variant="outline" className="px-4 py-2">
-            <Filter className="w-4 h-4 mr-2" />
+          <Badge variant="outline" className="border-slate-600 text-slate-300">
+            {filteredAndSortedData.length} filtered rows
+          </Badge>
+          <Badge variant="outline" className="border-slate-600 text-slate-300">
             {columns.length} columns
           </Badge>
           {editMode && (
-            <Badge variant="default" className="px-4 py-2">
-              <Edit3 className="w-4 h-4 mr-2" />
-              {editMode} mode active
+            <Badge variant="outline" className="border-blue-500 text-blue-400">
+              {editMode} edit mode
             </Badge>
           )}
-        </div>
-        
-        <div className="text-sm text-muted-foreground">
-          Last updated: {new Date().toLocaleTimeString()}
-        </div>
+          {selectedRows.size > 0 && (
+            <Badge variant="outline" className="border-yellow-500 text-yellow-400">
+              {selectedRows.size} selected
+            </Badge>
+          )}
+        </motion.div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
